@@ -1,7 +1,7 @@
 <?php
 
 $config = parse_ini_file(realpath(dirname(__FILE__)) . '/config.ini');
-$options = getopt("", array('table:', 'limit:', 'where:', 'offset:', 'order:', 'sort:', 'output:'));
+$options = getopt("", array('table:', 'limit:', 'where:', 'offset:', 'order:', 'sort:', 'output:', 'singlequote'));
 
 define('DB_HOST', $config['host']);
 define('DB_USER', $config['username']);
@@ -14,6 +14,7 @@ define('OFFSET', isset($options['offset']) ? $options['offset'] : null);
 define('ORDER_BY', isset($options['order']) ? $options['order'] : null);
 define('SORT', isset($options['sort']) ? $options['sort'] : null);
 define('WHERE', isset($options['where']) ? $options['where'] : null);
+define('SINGLE_QUOTE', isset($options['singlequote']) ? $options['singlequote'] : null);
 
 $mysqli = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
 
@@ -83,12 +84,20 @@ if ($mysqli) {
         $json = str_replace('"created_date"', 'created_date', $json);
         $json = str_replace('"queryInterface', 'queryInterface', $json);
         $json = str_replace('\')",', '\'),', $json);
+        $json = str_replace('\/', '/', $json);
+        $json = str_replace(': ""', ': null', $json);
+        $json = str_replace(': "true"', ': true', $json);
+        $json = str_replace(': "false"', ': false', $json);
+        $json = preg_replace('/"([[0-9.-]+)"/i', '$1', $json);
+        $json = preg_replace('/"zipcode": ([0-9]{5})/i', '"zipcode": "$1"', $json);
 
         for ($i = 0; $i < count($update_columns); $i++) {
             $json = str_replace('"' . $update_columns[$i] . '"', $update_columns[$i], $json);
         }
 
-        $json = str_replace('"', "'", $json);
+        if (SINGLE_QUOTE) {
+            $json = str_replace('"', "'", $json);
+        }
 
         $seeder = <<<EOD
 module.exports = {
